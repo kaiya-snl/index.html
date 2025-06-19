@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Drive Picker Uploader</title>
+  <script src="https://apis.google.com/js/api.js"></script>
+</head>
+<body>
+  <h1>Drive Picker Uploader</h1>
+  <button onclick="startPicker()">Drive にアップロード</button>
+
+  <script>
+    let oauthToken;
+
+    function startPicker() {
+      gapi.load('client:auth2', initAuth);
+    }
+
+    function initAuth() {
+      gapi.client.init({
+        clientId: '305775569044-2guihs7nefgd0ifa4pi0o4rat4p7lvm8.apps.googleusercontent.com',
+        scope: 'https://www.googleapis.com/auth/drive.file'
+      }).then(() => {
+        const authInstance = gapi.auth2.getAuthInstance();
+        if (!authInstance.isSignedIn.get()) {
+          authInstance.signIn().then(() => {
+            const token = authInstance.currentUser.get().getAuthResponse().access_token;
+            createPicker(token);
+          });
+        } else {
+          const token = authInstance.currentUser.get().getAuthResponse().access_token;
+          createPicker(token);
+        }
+      }).catch(err => {
+        alert('認証に失敗しました: ' + (err.details || err.message || err.toString()));
+      });
+    }
+
+    function createPicker(oauthToken) {
+      const picker = new google.picker.PickerBuilder()
+        .addView(google.picker.DocsUploadView())
+        .setOAuthToken(oauthToken)
+        .setDeveloperKey('AIzaSyBhJ9T6dMHX7uaru8QolG81cljO4nAV-8A')
+        .setCallback(pickerCallback)
+        .build();
+      picker.setVisible(true);
+    }
+
+    function pickerCallback(data) {
+      if (data.action === google.picker.Action.PICKED) {
+        const file = data.docs[0];
+        alert(`アップロード成功！\nファイル名: ${file.name}\nファイルID: ${file.id}`);
+        // 必要ならここでGAS APIへ file.id を送信する処理を追加できます
+      }
+    }
+  </script>
+</body>
+</html>
