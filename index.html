@@ -1,22 +1,19 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8" />
-  <title>CDNテスト</title>
+  <meta charset="UTF-8">
+  <title>CDN ロード確認</title>
   <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.7/dist/ffmpeg.min.js"></script>
 </head>
 <body>
   <h1>CDNロードテスト</h1>
   <script>
-    console.log("スクリプト開始");
-    window.addEventListener('DOMContentLoaded', () => {
-      console.log("DOMContentLoaded 発火");
-      if (typeof FFmpeg !== 'undefined') {
-        console.log("FFmpeg 読み込み成功");
-      } else {
-        console.error("FFmpeg 読み込み失敗");
-      }
-    });
+    console.log("[CDNテスト] ページ読み込み");
+    if (typeof FFmpeg !== 'undefined') {
+      console.log("[CDNテスト] FFmpeg オブジェクト取得成功");
+    } else {
+      console.error("[CDNテスト] FFmpeg オブジェクト取得失敗");
+    }
   </script>
 </body>
 </html>
