@@ -13,14 +13,16 @@
 <body>
   <h1>動画アップロード＆圧縮</h1>
   <input type="file" id="videoInput" accept="video/*"><br><br>
-  <button onclick="startCompression()">圧縮してアップロード</button>
+  <button id="compressButton">圧縮してアップロード</button>
   <div id="spinner"></div>
   <p id="status">準備中...</p>
 
   <script>
+    let ffmpeg;
+
     window.addEventListener('DOMContentLoaded', () => {
       const { createFFmpeg, fetchFile } = FFmpeg;
-      const ffmpeg = createFFmpeg({
+      ffmpeg = createFFmpeg({
         log: true,
         progress: ({ ratio }) => {
           const percent = Math.round(ratio * 100);
@@ -29,73 +31,75 @@
         }
       });
 
-      window.startCompression = async function() {
-        const fileInput = document.getElementById('videoInput');
-        if (!fileInput.files.length) {
-          alert('動画ファイルを選択してください');
+      document.getElementById('compressButton').addEventListener('click', startCompression);
+    });
+
+    async function startCompression() {
+      const fileInput = document.getElementById('videoInput');
+      if (!fileInput.files.length) {
+        alert('動画ファイルを選択してください');
+        return;
+      }
+
+      document.getElementById('spinner').style.display = 'block';
+      document.getElementById('status').innerText = 'ffmpeg.wasm をロード中...';
+      console.log('ffmpeg.wasm のロード開始');
+
+      try {
+        await ffmpeg.load();
+        console.log('ffmpeg.wasm のロード完了');
+        document.getElementById('status').innerText = 'ffmpeg.wasm ロード完了！';
+
+        const file = fileInput.files[0];
+        ffmpeg.FS('writeFile', file.name, await fetchFile(file));
+
+        document.getElementById('status').innerText = '圧縮中...';
+        console.log(`圧縮開始: ${file.name}`);
+        await ffmpeg.run('-i', file.name, '-b:v', '1000k', 'output.mp4');
+
+        const data = ffmpeg.FS('readFile', 'output.mp4');
+        const blob = new Blob([data.buffer], { type: 'video/mp4' });
+
+        console.log(`圧縮後サイズ: ${(blob.size / 1024 / 1024).toFixed(2)} MB`);
+        if (blob.size > 50 * 1024 * 1024) {
+          alert('圧縮後も50MBを超えています。再度圧縮設定を見直してください。');
+          document.getElementById('spinner').style.display = 'none';
+          document.getElementById('status').innerText = '圧縮失敗（サイズ超過）';
           return;
         }
 
-        document.getElementById('spinner').style.display = 'block';
-        document.getElementById('status').innerText = 'ffmpeg.wasm をロード中...';
-        console.log('ffmpeg.wasm のロード開始');
+        document.getElementById('status').innerText = 'アップロード中...';
+        uploadToGAS(blob);
+      } catch (err) {
+        console.error('圧縮処理中のエラー:', err);
+        document.getElementById('spinner').style.display = 'none';
+        document.getElementById('status').innerText = `エラー発生: ${err.message || err.toString()}`;
+      }
+    }
 
-        try {
-          await ffmpeg.load();
-          console.log('ffmpeg.wasm のロード完了');
-          document.getElementById('status').innerText = 'ffmpeg.wasm ロード完了！';
-
-          const file = fileInput.files[0];
-          ffmpeg.FS('writeFile', file.name, await fetchFile(file));
-
-          document.getElementById('status').innerText = '圧縮中...';
-          console.log(`圧縮開始: ${file.name}`);
-          await ffmpeg.run('-i', file.name, '-b:v', '1000k', 'output.mp4');
-
-          const data = ffmpeg.FS('readFile', 'output.mp4');
-          const blob = new Blob([data.buffer], { type: 'video/mp4' });
-
-          console.log(`圧縮後サイズ: ${(blob.size / 1024 / 1024).toFixed(2)} MB`);
-          if (blob.size > 50 * 1024 * 1024) {
-            alert('圧縮後も50MBを超えています。再度圧縮設定を見直してください。');
-            document.getElementById('spinner').style.display = 'none';
-            document.getElementById('status').innerText = '圧縮失敗（サイズ超過）';
-            return;
-          }
-
-          document.getElementById('status').innerText = 'アップロード中...';
-          uploadToGAS(blob);
-        } catch (err) {
-          console.error('圧縮処理中のエラー:', err);
+    function uploadToGAS(blob) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const base64Data = e.target.result.split(',')[1];
+        fetch('https://script.google.com/macros/s/AKfycbzta37TGo2wIQ3IQOUm2dyLn_RXL7eIxeE2HYLmzRtM0xT2O0ffeoZ0gL66EXTjc-iyhg/exec', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: `filedata=${encodeURIComponent(base64Data)}&filename=output.mp4&mimetype=video/mp4`
+        })
+        .then(response => response.text())
+        .then(result => {
           document.getElementById('spinner').style.display = 'none';
-          document.getElementById('status').innerText = `エラー発生: ${err.message || err.toString()}`;
-        }
-      }
-
-      function uploadToGAS(blob) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-          const base64Data = e.target.result.split(',')[1];
-          fetch('https://script.google.com/macros/s/AKfycbzta37TGo2wIQ3IQOUm2dyLn_RXL7eIxeE2HYLmzRtM0xT2O0ffeoZ0gL66EXTjc-iyhg/exec', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: `filedata=${encodeURIComponent(base64Data)}&filename=output.mp4&mimetype=video/mp4`
-          })
-          .then(response => response.text())
-          .then(result => {
-            document.getElementById('spinner').style.display = 'none';
-            document.getElementById('status').innerText = `アップロード完了: ${result}`;
-            console.log('アップロード結果:', result);
-          })
-          .catch(err => {
-            document.getElementById('spinner').style.display = 'none';
-            document.getElementById('status').innerText = `アップロード失敗: ${err}`;
-            console.error('アップロードエラー:', err);
-          });
-        };
-        reader.readAsDataURL(blob);
-      }
-    });
+          document.getElementById('status').innerText = `アップロード完了: ${result}`;
+          console.log('アップロード結果:', result);
+        })
+        .catch(err => {
+          document.getElementById('spinner').style.display = 'none';
+          document.getElementById('status').innerText = `アップロード失敗: ${err}`;
+          console.error('アップロードエラー:', err);
+        });
+      };
+      reader.readAsDataURL(blob);
+    }
   </script>
 </body>
 </html>
