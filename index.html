@@ -1,583 +1,78 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Google Drive Picker Uploader</title>
-  <script src="https://apis.google.com/js/api.js"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <meta charset="UTF-8" />
+  <title>動画アップロード＆圧縮</title>
+  <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.7/dist/ffmpeg.min.js"></script>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    }
-    
-    body {
-      background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d);
-      min-height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      padding: 20px;
-    }
-    
-    .container {
-      background: rgba(255, 255, 255, 0.95);
-      border-radius: 20px;
-      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
-      width: 100%;
-      max-width: 800px;
-      overflow: hidden;
-    }
-    
-    header {
-      background: linear-gradient(90deg, #4285F4, #34A853, #FBBC05, #EA4335);
-      color: white;
-      padding: 30px 20px;
-      text-align: center;
-      position: relative;
-    }
-    
-    header h1 {
-      font-size: 2.5rem;
-      margin-bottom: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 15px;
-    }
-    
-    header p {
-      font-size: 1.1rem;
-      opacity: 0.9;
-      max-width: 600px;
-      margin: 0 auto;
-    }
-    
-    .content {
-      padding: 40px 30px;
-    }
-    
-    .upload-section {
-      text-align: center;
-      margin-bottom: 40px;
-    }
-    
-    .btn {
-      background: linear-gradient(90deg, #4285F4, #34A853);
-      color: white;
-      border: none;
-      padding: 18px 40px;
-      font-size: 1.4rem;
-      border-radius: 50px;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 12px;
-      transition: all 0.3s ease;
-      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-    }
-    
-    .btn:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
-    }
-    
-    .btn:active {
-      transform: translateY(1px);
-    }
-    
-    .btn i {
-      font-size: 1.6rem;
-    }
-    
-    .info-section {
-      background: #f8f9fa;
-      border-radius: 15px;
-      padding: 25px;
-      margin-bottom: 30px;
-      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
-    }
-    
-    .info-section h2 {
-      color: #4285F4;
-      margin-bottom: 20px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    
-    .info-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 20px;
-    }
-    
-    .info-card {
-      background: white;
-      border-radius: 12px;
-      padding: 20px;
-      text-align: center;
-      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
-    }
-    
-    .info-card i {
-      font-size: 2.5rem;
-      color: #4285F4;
-      margin-bottom: 15px;
-    }
-    
-    .info-card h3 {
-      margin-bottom: 10px;
-      color: #1a73e8;
-    }
-    
-    .status-section {
-      background: #f8f9fa;
-      border-radius: 15px;
-      padding: 25px;
-      text-align: center;
-    }
-    
-    .status-section h2 {
-      color: #4285F4;
-      margin-bottom: 20px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-    }
-    
-    .spinner {
-      display: none;
-      width: 80px;
-      height: 80px;
-      margin: 30px auto;
-      position: relative;
-    }
-    
-    .spinner div {
-      position: absolute;
-      width: 100%;
-      height: 100%;
-      border: 8px solid transparent;
-      border-top-color: #4285F4;
-      border-radius: 50%;
-      animation: spin 1.5s cubic-bezier(0.68, -0.55, 0.27, 1.55) infinite;
-    }
-    
-    .spinner div:nth-child(2) {
-      border: 8px solid transparent;
-      border-bottom-color: #34A853;
-      animation-delay: -0.5s;
-    }
-    
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-    
-    .progress-container {
-      height: 12px;
-      background: #e0e0e0;
-      border-radius: 10px;
-      overflow: hidden;
-      margin: 30px 0;
-      display: none;
-    }
-    
-    .progress-bar {
-      height: 100%;
-      background: linear-gradient(90deg, #4285F4, #34A853);
-      width: 0%;
-      transition: width 0.4s ease;
-    }
-    
-    .file-info {
-      background: white;
-      border-radius: 12px;
-      padding: 20px;
-      margin-top: 20px;
-      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
-      display: none;
-    }
-    
-    .file-info-grid {
-      display: grid;
-      grid-template-columns: auto 1fr;
-      gap: 15px;
-      text-align: left;
-    }
-    
-    .file-info-label {
-      font-weight: bold;
-      color: #5f6368;
-    }
-    
-    .result-section {
-      display: none;
-      background: white;
-      border-radius: 15px;
-      padding: 30px;
-      margin-top: 30px;
-      text-align: center;
-      box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
-    }
-    
-    .result-icon {
-      font-size: 5rem;
-      color: #34A853;
-      margin-bottom: 20px;
-    }
-    
-    .result-title {
-      font-size: 1.8rem;
-      color: #34A853;
-      margin-bottom: 20px;
-    }
-    
-    .file-details {
-      background: #f1f8ff;
-      border-radius: 12px;
-      padding: 20px;
-      margin: 25px 0;
-      text-align: left;
-    }
-    
-    .action-buttons {
-      display: flex;
-      gap: 15px;
-      justify-content: center;
-      margin-top: 25px;
-    }
-    
-    .action-btn {
-      padding: 12px 30px;
-      border-radius: 8px;
-      font-size: 1.1rem;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      transition: all 0.3s ease;
-    }
-    
-    .view-btn {
-      background: linear-gradient(90deg, #4285F4, #1a73e8);
-      color: white;
-      border: none;
-    }
-    
-    .new-btn {
-      background: white;
-      color: #5f6368;
-      border: 1px solid #dadce0;
-    }
-    
-    .view-btn:hover {
-      background: linear-gradient(90deg, #1a73e8, #4285F4);
-    }
-    
-    .new-btn:hover {
-      background: #f8f9fa;
-    }
-    
-    footer {
-      background: #f1f3f4;
-      padding: 20px;
-      text-align: center;
-      color: #5f6368;
-      font-size: 0.9rem;
-    }
-    
-    @media (max-width: 600px) {
-      header h1 {
-        font-size: 2rem;
-      }
-      
-      .btn {
-        padding: 15px 30px;
-        font-size: 1.2rem;
-      }
-      
-      .info-grid {
-        grid-template-columns: 1fr;
-      }
-    }
+    body { font-family: sans-serif; text-align: center; padding: 30px; }
+    #spinner { display: none; margin: 20px auto; border: 6px solid #ccc; border-top: 6px solid #4285F4; border-radius: 50%; width: 60px; height: 60px; animation: spin 1s linear infinite; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <h1><i class="fab fa-google-drive"></i> Google Drive Picker Uploader</h1>
-      <p>Google Driveにファイルを簡単にアップロード - 進捗表示付き</p>
-    </header>
-    
-    <div class="content">
-      <div class="upload-section">
-        <button class="btn" onclick="startPicker()">
-          <i class="fas fa-cloud-upload-alt"></i> Driveにアップロード
-        </button>
-      </div>
-      
-      <div class="info-section">
-        <h2><i class="fas fa-info-circle"></i> アップロードの流れ</h2>
-        <div class="info-grid">
-          <div class="info-card">
-            <i class="fas fa-sign-in-alt"></i>
-            <h3>Google認証</h3>
-            <p>Googleアカウントでログイン</p>
-          </div>
-          <div class="info-card">
-            <i class="fas fa-file-upload"></i>
-            <h3>ファイル選択</h3>
-            <p>アップロードするファイルを選択</p>
-          </div>
-          <div class="info-card">
-            <i class="fas fa-sync-alt"></i>
-            <h3>アップロード中</h3>
-            <p>進捗をリアルタイムで表示</p>
-          </div>
-          <div class="info-card">
-            <i class="fas fa-check-circle"></i>
-            <h3>完了通知</h3>
-            <p>アップロード成功を通知</p>
-          </div>
-        </div>
-      </div>
-      
-      <div class="status-section">
-        <h2><i class="fas fa-tasks"></i> アップロード状態</h2>
-        
-        <div class="spinner" id="spinner">
-          <div></div>
-          <div></div>
-        </div>
-        
-        <div class="progress-container" id="progress-container">
-          <div class="progress-bar" id="progress-bar"></div>
-        </div>
-        
-        <div id="status-text">操作を待機しています...</div>
-        
-        <div class="file-info" id="file-info">
-          <div class="file-info-grid">
-            <div class="file-info-label">ファイル名:</div>
-            <div id="file-name">-</div>
-            
-            <div class="file-info-label">サイズ:</div>
-            <div id="file-size">-</div>
-            
-            <div class="file-info-label">タイプ:</div>
-            <div id="file-type">-</div>
-            
-            <div class="file-info-label">進捗:</div>
-            <div id="file-progress">-</div>
-          </div>
-        </div>
-      </div>
-      
-      <div class="result-section" id="result-section">
-        <div class="result-icon">
-          <i class="fas fa-check-circle"></i>
-        </div>
-        <h2 class="result-title">アップロード成功!</h2>
-        
-        <div class="file-details">
-          <h3><i class="fas fa-file-alt"></i> ファイル詳細</h3>
-          <div class="file-info-grid">
-            <div class="file-info-label">ファイル名:</div>
-            <div id="result-file-name">-</div>
-            
-            <div class="file-info-label">ファイルID:</div>
-            <div id="result-file-id">-</div>
-            
-            <div class="file-info-label">サイズ:</div>
-            <div id="result-file-size">-</div>
-            
-            <div class="file-info-label">タイプ:</div>
-            <div id="result-file-type">-</div>
-            
-            <div class="file-info-label">アップロード日時:</div>
-            <div id="result-upload-time">-</div>
-          </div>
-        </div>
-        
-        <div class="action-buttons">
-          <button class="action-btn view-btn" id="view-btn">
-            <i class="fas fa-eye"></i> Driveで表示
-          </button>
-          <button class="action-btn new-btn" onclick="resetUploader()">
-            <i class="fas fa-plus-circle"></i> 新規アップロード
-          </button>
-        </div>
-      </div>
-    </div>
-    
-    <footer>
-      <p>Google Drive Picker Uploader &copy; 2023 - 安全なファイルアップロード</p>
-    </footer>
-  </div>
+  <h1>動画アップロード＆圧縮</h1>
+  <input type="file" id="videoInput" accept="video/*"><br><br>
+  <button onclick="startCompression()">圧縮してアップロード</button>
+  <div id="spinner"></div>
+  <p id="status">準備中...</p>
 
   <script>
-    let oauthToken;
-    let uploadedFile = null;
-    
-    function startPicker() {
-      showSpinner(true);
-      document.getElementById('status-text').textContent = 'Google認証を開始しています...';
-      
-      gapi.load('client:auth2', initAuth);
-    }
-    
-    function initAuth() {
-      gapi.client.init({
-        clientId: '305775569044-2guihs7nefgd0ifa4pi0o4rat4p7lvm8.apps.googleusercontent.com',
-        scope: 'https://www.googleapis.com/auth/drive.file'
-      }).then(() => {
-        const authInstance = gapi.auth2.getAuthInstance();
-        if (!authInstance.isSignedIn.get()) {
-          authInstance.signIn().then(() => {
-            const token = authInstance.currentUser.get().getAuthResponse().access_token;
-            document.getElementById('status-text').textContent = '認証成功！ピッカーを起動しています...';
-            setTimeout(() => createPicker(token), 1000);
-          });
-        } else {
-          const token = authInstance.currentUser.get().getAuthResponse().access_token;
-          document.getElementById('status-text').textContent = '認証成功！ピッカーを起動しています...';
-          setTimeout(() => createPicker(token), 1000);
-        }
-      }).catch(err => {
-        showSpinner(false);
-        document.getElementById('status-text').textContent = '認証エラーが発生しました';
-        alert('認証に失敗しました: ' + (err.details || err.message || err.toString()));
-      });
-    }
-    
-    function createPicker(oauthToken) {
-      showSpinner(false);
-      document.getElementById('progress-container').style.display = 'block';
-      updateProgress(30);
-      document.getElementById('status-text').textContent = 'ファイル選択を待機しています...';
-      
-      const picker = new google.picker.PickerBuilder()
-        .addView(google.picker.DocsUploadView())
-        .setOAuthToken(oauthToken)
-        .setDeveloperKey('AIzaSyBhJ9T6dMHX7uaru8QolG81cljO4nAV-8A')
-        .setCallback(pickerCallback)
-        .build();
-      picker.setVisible(true);
-    }
-    
-    function pickerCallback(data) {
-      if (data.action === google.picker.Action.PICKED) {
-        uploadedFile = data.docs[0];
-        
-        // アップロード中のUI表示
-        showSpinner(true);
-        document.getElementById('progress-container').style.display = 'block';
-        document.getElementById('file-info').style.display = 'block';
-        
-        // ファイル情報を更新
-        document.getElementById('file-name').textContent = uploadedFile.name;
-        document.getElementById('file-type').textContent = uploadedFile.type || '不明';
-        
-        // ファイルサイズを整形
-        const fileSize = uploadedFile.sizeBytes ? formatFileSize(uploadedFile.sizeBytes) : '不明';
-        document.getElementById('file-size').textContent = fileSize;
-        
-        // 進捗アニメーションを開始
-        simulateUploadProgress();
-      } 
-      else if (data.action === google.picker.Action.CANCEL) {
-        showSpinner(false);
-        document.getElementById('progress-container').style.display = 'none';
-        document.getElementById('file-info').style.display = 'none';
-        document.getElementById('status-text').textContent = 'アップロードがキャンセルされました';
+    const { createFFmpeg, fetchFile } = FFmpeg;
+    const ffmpeg = createFFmpeg({ log: true });
+
+    async function startCompression() {
+      const fileInput = document.getElementById('videoInput');
+      if (!fileInput.files.length) {
+        alert('動画ファイルを選択してください');
+        return;
       }
+
+      document.getElementById('spinner').style.display = 'block';
+      document.getElementById('status').innerText = 'ffmpeg.wasm をロード中...';
+
+      await ffmpeg.load();
+      const file = fileInput.files[0];
+      ffmpeg.FS('writeFile', file.name, await fetchFile(file));
+
+      document.getElementById('status').innerText = '圧縮中...';
+      await ffmpeg.run('-i', file.name, '-b:v', '1000k', 'output.mp4');
+
+      const data = ffmpeg.FS('readFile', 'output.mp4');
+      const blob = new Blob([data.buffer], { type: 'video/mp4' });
+
+      if (blob.size > 50 * 1024 * 1024) {
+        alert('圧縮後も50MBを超えています。再度圧縮設定を見直してください。');
+        document.getElementById('spinner').style.display = 'none';
+        document.getElementById('status').innerText = '圧縮失敗';
+        return;
+      }
+
+      document.getElementById('status').innerText = 'アップロード中...';
+      uploadToGAS(blob);
     }
-    
-    function simulateUploadProgress() {
-      let progress = 30;
-      document.getElementById('file-progress').textContent = `${progress}%`;
-      updateProgress(progress);
-      document.getElementById('status-text').textContent = 'ファイルをアップロード中...';
-      
-      const interval = setInterval(() => {
-        progress += Math.floor(Math.random() * 10) + 1;
-        if (progress >= 100) {
-          progress = 100;
-          clearInterval(interval);
-          
-          // アップロード完了処理
-          setTimeout(showUploadResult, 800);
-        }
-        
-        document.getElementById('file-progress').textContent = `${progress}%`;
-        updateProgress(progress);
-      }, 300);
-    }
-    
-    function showUploadResult() {
-      showSpinner(false);
-      document.getElementById('progress-container').style.display = 'none';
-      document.getElementById('file-info').style.display = 'none';
-      document.getElementById('status-text').textContent = 'アップロードが完了しました！';
-      
-      // 結果セクションを表示
-      document.getElementById('result-section').style.display = 'block';
-      
-      // 結果情報を設定
-      document.getElementById('result-file-name').textContent = uploadedFile.name;
-      document.getElementById('result-file-id').textContent = uploadedFile.id;
-      document.getElementById('result-file-type').textContent = uploadedFile.type || '不明';
-      
-      // ファイルサイズを整形
-      const fileSize = uploadedFile.sizeBytes ? formatFileSize(uploadedFile.sizeBytes) : '不明';
-      document.getElementById('result-file-size').textContent = fileSize;
-      
-      // 現在の日時を設定
-      const now = new Date();
-      document.getElementById('result-upload-time').textContent = now.toLocaleString();
-      
-      // Driveで表示するボタンの設定
-      document.getElementById('view-btn').onclick = () => {
-        window.open(`https://drive.google.com/file/d/${uploadedFile.id}/view`, '_blank');
+
+    function uploadToGAS(blob) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const base64Data = e.target.result.split(',')[1];
+        fetch('YOUR_GAS_WEB_APP_URL', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: `filedata=${encodeURIComponent(base64Data)}&filename=output.mp4&mimetype=video/mp4`
+        })
+        .then(response => response.text())
+        .then(result => {
+          document.getElementById('spinner').style.display = 'none';
+          document.getElementById('status').innerText = `アップロード完了: ${result}`;
+        })
+        .catch(err => {
+          document.getElementById('spinner').style.display = 'none';
+          document.getElementById('status').innerText = `アップロード失敗: ${err}`;
+        });
       };
+      reader.readAsDataURL(blob);
     }
-    
-    function resetUploader() {
-      document.getElementById('result-section').style.display = 'none';
-      document.getElementById('status-text').textContent = '操作を待機しています...';
-      uploadedFile = null;
-    }
-    
-    function showSpinner(show) {
-      document.getElementById('spinner').style.display = show ? 'block' : 'none';
-    }
-    
-    function updateProgress(percent) {
-      document.getElementById('progress-bar').style.width = `${percent}%`;
-    }
-    
-    function formatFileSize(bytes) {
-      if (bytes === 0) return '0 Bytes';
-      const k = 1024;
-      const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-      const i = Math.floor(Math.log(bytes) / Math.log(k));
-      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-    }
-    
-    // 初期化
-    window.onload = () => {
-      // デモ用にダミーのファイル情報を表示
-      document.getElementById('file-name').textContent = 'example.mp4';
-      document.getElementById('file-size').textContent = '24.5 MB';
-      document.getElementById('file-type').textContent = 'MP4 Video';
-      document.getElementById('file-progress').textContent = '0%';
-    };
   </script>
 </body>
 </html>
