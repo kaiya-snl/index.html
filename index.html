@@ -8,115 +8,158 @@
     body { font-family: sans-serif; text-align: center; padding: 30px; }
     #spinner { display: none; margin: 20px auto; border: 6px solid #ccc; border-top: 6px solid #4285F4; border-radius: 50%; width: 60px; height: 60px; animation: spin 1s linear infinite; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .progress-bar { width: 80%; height: 20px; background-color: #f1f1f1; margin: 20px auto; border-radius: 10px; overflow: hidden; }
+    .progress { height: 100%; background-color: #4285F4; width: 0%; transition: width 0.3s; }
+    #fileInfo { margin: 10px 0; }
   </style>
 </head>
 <body>
   <h1>動画アップロード＆圧縮</h1>
-  <input type="file" id="videoInput" accept="video/*"><br><br>
-  <button id="compressButton">圧縮してアップロード</button>
+  <input type="file" id="videoInput" accept="video/*"><br>
+  <div id="fileInfo"></div>
+  <button id="compressButton" disabled>圧縮してアップロード</button>
   <div id="spinner"></div>
-  <p id="status">準備中...</p>
+  <div class="progress-bar">
+    <div class="progress" id="progressBar"></div>
+  </div>
+  <p id="status">ファイルを選択してください</p>
 
   <script>
     let ffmpeg;
+    let currentFile = null;
+    let processing = false;
 
-    console.log("スクリプト読み込み開始");
-
-    window.addEventListener('DOMContentLoaded', () => {
-      console.log("DOMContentLoaded 発火");
-      
-      const { createFFmpeg, fetchFile } = FFmpeg;
-      console.log("FFmpeg オブジェクト取得");
-      
-      ffmpeg = createFFmpeg({
-        log: true,
-        progress: ({ ratio }) => {
-          const percent = Math.round(ratio * 100);
-          console.log(`Loading progress: ${percent}%`);
-          document.getElementById('status').innerText = `ffmpeg.wasm 読み込み中... ${percent}%`;
-        }
-      });
-
-      document.getElementById('compressButton').addEventListener('click', () => {
-        console.log("圧縮ボタン押下");
-        startCompression();
-      });
+    document.getElementById('videoInput').addEventListener('change', (e) => {
+      if (e.target.files.length > 0) {
+        currentFile = e.target.files[0];
+        document.getElementById('compressButton').disabled = false;
+        document.getElementById('fileInfo').innerText = 
+          `選択ファイル: ${currentFile.name} (${(currentFile.size / 1024 / 1024).toFixed(2)} MB)`;
+        document.getElementById('status').innerText = '「圧縮してアップロード」ボタンをクリック';
+      }
     });
 
-    async function startCompression() {
-      console.log("startCompression 呼び出し");
-      
-      const fileInput = document.getElementById('videoInput');
-      if (!fileInput.files.length) {
+    document.getElementById('compressButton').addEventListener('click', async () => {
+      if (processing) return;
+      if (!currentFile) {
         alert('動画ファイルを選択してください');
-        console.log("ファイル未選択");
         return;
       }
+      processing = true;
+      document.getElementById('compressButton').disabled = true;
+      startCompression();
+    });
 
-      document.getElementById('spinner').style.display = 'block';
-      document.getElementById('status').innerText = 'ffmpeg.wasm をロード中...';
-      console.log('ffmpeg.wasm のロード開始');
-
-      try {
+    async function initFFmpeg() {
+      if (!ffmpeg) {
+        const { createFFmpeg, fetchFile } = FFmpeg;
+        ffmpeg = createFFmpeg({
+          log: true,
+          progress: ({ ratio }) => {
+            const percent = Math.round(ratio * 100);
+            document.getElementById('status').innerText = `ffmpeg.wasm 初期化中... ${percent}%`;
+          }
+        });
         await ffmpeg.load();
-        console.log('ffmpeg.wasm のロード完了');
-        document.getElementById('status').innerText = 'ffmpeg.wasm ロード完了！';
+      }
+      return ffmpeg;
+    }
 
-        const file = fileInput.files[0];
-        console.log(`選択ファイル: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
-        ffmpeg.FS('writeFile', file.name, await fetchFile(file));
-
-        document.getElementById('status').innerText = '圧縮中...';
-        console.log(`圧縮開始: ${file.name}`);
-        await ffmpeg.run('-i', file.name, '-b:v', '1000k', 'output.mp4');
-
-        const data = ffmpeg.FS('readFile', 'output.mp4');
-        const blob = new Blob([data.buffer], { type: 'video/mp4' });
-
-        console.log(`圧縮後サイズ: ${(blob.size / 1024 / 1024).toFixed(2)} MB`);
-        if (blob.size > 50 * 1024 * 1024) {
-          alert('圧縮後も50MBを超えています。再度圧縮設定を見直してください。');
-          document.getElementById('spinner').style.display = 'none';
-          document.getElementById('status').innerText = '圧縮失敗（サイズ超過）';
+    async function startCompression() {
+      try {
+        document.getElementById('spinner').style.display = 'block';
+        document.getElementById('status').innerText = 'ffmpeg.wasm をロード中...';
+        
+        const file = currentFile;
+        
+        // ファイルサイズチェック (50MB制限)
+        if (file.size > 50 * 1024 * 1024) {
+          alert('ファイルサイズが50MBを超えています。より小さいファイルを選択してください。');
+          resetUI();
           return;
         }
 
-        document.getElementById('status').innerText = 'アップロード中...';
-        console.log('アップロード開始');
-        uploadToGAS(blob);
+        // FFmpeg初期化
+        const ffmpeg = await initFFmpeg();
+        document.getElementById('status').innerText = '圧縮処理を開始...';
+        
+        // ファイルシステムに書き込み
+        ffmpeg.FS('writeFile', file.name, await FFmpeg.fetchFile(file));
+        
+        // 進捗表示設定
+        ffmpeg.setProgress(({ ratio }) => {
+          const percent = Math.round(ratio * 100);
+          document.getElementById('progressBar').style.width = `${percent}%`;
+          document.getElementById('status').innerText = `圧縮中... ${percent}%`;
+        });
+
+        // 圧縮実行 (解像度を720pにダウンスケール)
+        await ffmpeg.run(
+          '-i', file.name,
+          '-vf', 'scale=-2:720',
+          '-c:v', 'libx264',
+          '-crf', '28',
+          '-preset', 'fast',
+          '-c:a', 'aac',
+          '-b:a', '64k',
+          'output.mp4'
+        );
+
+        // 出力ファイル取得
+        const data = ffmpeg.FS('readFile', 'output.mp4');
+        const blob = new Blob([data.buffer], { type: 'video/mp4' });
+        
+        // 圧縮後のサイズチェック
+        const compressedSize = blob.size / 1024 / 1024;
+        if (compressedSize > 50) {
+          alert(`圧縮後も50MBを超えています (${compressedSize.toFixed(2)}MB)。別のファイルをお試しください。`);
+          resetUI();
+          return;
+        }
+
+        document.getElementById('status').innerText = `圧縮完了! (${compressedSize.toFixed(2)}MB) アップロード中...`;
+        await uploadToGAS(blob);
+        
       } catch (err) {
-        console.error('圧縮処理中のエラー:', err);
-        document.getElementById('spinner').style.display = 'none';
-        document.getElementById('status').innerText = `エラー発生: ${err.message || err.toString()}`;
+        console.error('エラー:', err);
+        document.getElementById('status').innerText = `エラー: ${err.message || err}`;
+        resetUI();
       }
     }
 
-    function uploadToGAS(blob) {
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        console.log("ファイルをBase64化完了");
-        const base64Data = e.target.result.split(',')[1];
-        fetch('https://script.google.com/macros/s/AKfycbzta37TGo2wIQ3IQOUm2dyLn_RXL7eIxeE2HYLmzRtM0xT2O0ffeoZ0gL66EXTjc-iyhg/exec', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: `filedata=${encodeURIComponent(base64Data)}&filename=output.mp4&mimetype=video/mp4`
-        })
-        .then(response => response.text())
-        .then(result => {
-          console.log('アップロード結果:', result);
-          document.getElementById('spinner').style.display = 'none';
-          document.getElementById('status').innerText = `アップロード完了: ${result}`;
-        })
-        .catch(err => {
-          console.error('アップロードエラー:', err);
-          document.getElementById('spinner').style.display = 'none';
-          document.getElementById('status').innerText = `アップロード失敗: ${err}`;
-        });
-      };
-      reader.readAsDataURL(blob);
+    function resetUI() {
+      document.getElementById('spinner').style.display = 'none';
+      document.getElementById('progressBar').style.width = '0%';
+      document.getElementById('compressButton').disabled = false;
+      processing = false;
     }
 
-    console.log("スクリプト読み込み終了");
+    async function uploadToGAS(blob) {
+      try {
+        const formData = new FormData();
+        formData.append('file', blob, 'compressed_video.mp4');
+        
+        const response = await fetch(
+          'https://script.google.com/macros/s/AKfycbzta37TGo2wIQ3IQOUm2dyLn_RXL7eIxeE2HYLmzRtM0xT2O0ffeoZ0gL66EXTjc-iyhg/exec', 
+          {
+            method: 'POST',
+            body: formData
+          }
+        );
+        
+        const result = await response.text();
+        document.getElementById('status').innerText = `アップロード成功: ${result}`;
+      } catch (err) {
+        document.getElementById('status').innerText = `アップロード失敗: ${err.message || err}`;
+      } finally {
+        resetUI();
+      }
+    }
+
+    // 初期化
+    window.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('status').innerText = 'ファイルを選択してください';
+    });
   </script>
 </body>
 </html>
