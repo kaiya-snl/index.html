@@ -56,7 +56,7 @@
       const reader = new FileReader();
       reader.onload = function(e) {
         const base64Data = e.target.result.split(',')[1];
-        fetch('YOUR_GAS_WEB_APP_URL', {
+        fetch('https://script.google.com/macros/s/AKfycbzta37TGo2wIQ3IQOUm2dyLn_RXL7eIxeE2HYLmzRtM0xT2O0ffeoZ0gL66EXTjc-iyhg/exec', {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           body: `filedata=${encodeURIComponent(base64Data)}&filename=output.mp4&mimetype=video/mp4`
