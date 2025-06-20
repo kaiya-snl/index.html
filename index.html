@@ -20,8 +20,14 @@
   <script>
     let ffmpeg;
 
+    console.log("スクリプト読み込み開始");
+
     window.addEventListener('DOMContentLoaded', () => {
+      console.log("DOMContentLoaded 発火");
+      
       const { createFFmpeg, fetchFile } = FFmpeg;
+      console.log("FFmpeg オブジェクト取得");
+      
       ffmpeg = createFFmpeg({
         log: true,
         progress: ({ ratio }) => {
@@ -31,13 +37,19 @@
         }
       });
 
-      document.getElementById('compressButton').addEventListener('click', startCompression);
+      document.getElementById('compressButton').addEventListener('click', () => {
+        console.log("圧縮ボタン押下");
+        startCompression();
+      });
     });
 
     async function startCompression() {
+      console.log("startCompression 呼び出し");
+      
       const fileInput = document.getElementById('videoInput');
       if (!fileInput.files.length) {
         alert('動画ファイルを選択してください');
+        console.log("ファイル未選択");
         return;
       }
 
@@ -51,6 +63,7 @@
         document.getElementById('status').innerText = 'ffmpeg.wasm ロード完了！';
 
         const file = fileInput.files[0];
+        console.log(`選択ファイル: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
         ffmpeg.FS('writeFile', file.name, await fetchFile(file));
 
         document.getElementById('status').innerText = '圧縮中...';
@@ -69,6 +82,7 @@
         }
 
         document.getElementById('status').innerText = 'アップロード中...';
+        console.log('アップロード開始');
         uploadToGAS(blob);
       } catch (err) {
         console.error('圧縮処理中のエラー:', err);
@@ -80,6 +94,7 @@
     function uploadToGAS(blob) {
       const reader = new FileReader();
       reader.onload = function(e) {
+        console.log("ファイルをBase64化完了");
         const base64Data = e.target.result.split(',')[1];
         fetch('https://script.google.com/macros/s/AKfycbzta37TGo2wIQ3IQOUm2dyLn_RXL7eIxeE2HYLmzRtM0xT2O0ffeoZ0gL66EXTjc-iyhg/exec', {
           method: 'POST',
@@ -88,18 +103,20 @@
         })
         .then(response => response.text())
         .then(result => {
+          console.log('アップロード結果:', result);
           document.getElementById('spinner').style.display = 'none';
           document.getElementById('status').innerText = `アップロード完了: ${result}`;
-          console.log('アップロード結果:', result);
         })
         .catch(err => {
+          console.error('アップロードエラー:', err);
           document.getElementById('spinner').style.display = 'none';
           document.getElementById('status').innerText = `アップロード失敗: ${err}`;
-          console.error('アップロードエラー:', err);
         });
       };
       reader.readAsDataURL(blob);
     }
+
+    console.log("スクリプト読み込み終了");
   </script>
 </body>
 </html>
