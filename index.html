@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <title>動画アップロード＆圧縮</title>
-  <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.7/dist/ffmpeg.min.js"></script>
+  <!-- CDN の別ミラーに変更（jsDelivr） -->
+  <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.7/dist/ffmpeg.min.js"></script>
   <style>
     body { font-family: sans-serif; text-align: center; padding: 30px; }
     #spinner { display: none; margin: 20px auto; border: 6px solid #ccc; border-top: 6px solid #4285F4; border-radius: 50%; width: 60px; height: 60px; animation: spin 1s linear infinite; }
@@ -19,7 +20,14 @@
 
   <script>
     const { createFFmpeg, fetchFile } = FFmpeg;
-    const ffmpeg = createFFmpeg({ log: true });
+    const ffmpeg = createFFmpeg({
+      log: true,
+      progress: ({ ratio }) => {
+        const percent = Math.round(ratio * 100);
+        console.log(`Loading progress: ${percent}%`);
+        document.getElementById('status').innerText = `ffmpeg.wasm 読み込み中... ${percent}%`;
+      }
+    });
 
     async function startCompression() {
       const fileInput = document.getElementById('videoInput');
@@ -30,26 +38,38 @@
 
       document.getElementById('spinner').style.display = 'block';
       document.getElementById('status').innerText = 'ffmpeg.wasm をロード中...';
+      console.log('ffmpeg.wasm のロード開始');
 
-      await ffmpeg.load();
-      const file = fileInput.files[0];
-      ffmpeg.FS('writeFile', file.name, await fetchFile(file));
+      try {
+        await ffmpeg.load();
+        console.log('ffmpeg.wasm のロード完了');
+        document.getElementById('status').innerText = 'ffmpeg.wasm ロード完了！';
 
-      document.getElementById('status').innerText = '圧縮中...';
-      await ffmpeg.run('-i', file.name, '-b:v', '1000k', 'output.mp4');
+        const file = fileInput.files[0];
+        ffmpeg.FS('writeFile', file.name, await fetchFile(file));
 
-      const data = ffmpeg.FS('readFile', 'output.mp4');
-      const blob = new Blob([data.buffer], { type: 'video/mp4' });
+        document.getElementById('status').innerText = '圧縮中...';
+        console.log(`圧縮開始: ${file.name}`);
+        await ffmpeg.run('-i', file.name, '-b:v', '1000k', 'output.mp4');
 
-      if (blob.size > 50 * 1024 * 1024) {
-        alert('圧縮後も50MBを超えています。再度圧縮設定を見直してください。');
+        const data = ffmpeg.FS('readFile', 'output.mp4');
+        const blob = new Blob([data.buffer], { type: 'video/mp4' });
+
+        console.log(`圧縮後サイズ: ${(blob.size / 1024 / 1024).toFixed(2)} MB`);
+        if (blob.size > 50 * 1024 * 1024) {
+          alert('圧縮後も50MBを超えています。再度圧縮設定を見直してください。');
+          document.getElementById('spinner').style.display = 'none';
+          document.getElementById('status').innerText = '圧縮失敗（サイズ超過）';
+          return;
+        }
+
+        document.getElementById('status').innerText = 'アップロード中...';
+        uploadToGAS(blob);
+      } catch (err) {
+        console.error('圧縮処理中のエラー:', err);
         document.getElementById('spinner').style.display = 'none';
-        document.getElementById('status').innerText = '圧縮失敗';
-        return;
+        document.getElementById('status').innerText = `エラー発生: ${err.message || err.toString()}`;
       }
-
-      document.getElementById('status').innerText = 'アップロード中...';
-      uploadToGAS(blob);
     }
 
     function uploadToGAS(blob) {
@@ -65,10 +85,12 @@
         .then(result => {
           document.getElementById('spinner').style.display = 'none';
           document.getElementById('status').innerText = `アップロード完了: ${result}`;
+          console.log('アップロード結果:', result);
         })
         .catch(err => {
           document.getElementById('spinner').style.display = 'none';
           document.getElementById('status').innerText = `アップロード失敗: ${err}`;
+          console.error('アップロードエラー:', err);
         });
       };
       reader.readAsDataURL(blob);
