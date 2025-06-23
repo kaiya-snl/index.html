@@ -3,16 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <title>CDN ロード確認</title>
-  <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.7/dist/ffmpeg.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.7"></script>
 </head>
 <body>
-  <h1>CDNロードテスト</h1>
+  <h1>CDNロードテスト (jsDelivr)</h1>
   <script>
-    console.log("[CDNテスト] ページ読み込み");
+    console.log("[CDNテスト-jsDelivr] ページ読み込み");
     if (typeof FFmpeg !== 'undefined') {
-      console.log("[CDNテスト] FFmpeg オブジェクト取得成功");
+      console.log("[CDNテスト-jsDelivr] FFmpeg オブジェクト取得成功");
     } else {
-      console.error("[CDNテスト] FFmpeg オブジェクト取得失敗");
+      console.error("[CDNテスト-jsDelivr] FFmpeg オブジェクト取得失敗");
     }
   </script>
 </body>
